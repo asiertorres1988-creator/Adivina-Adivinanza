@@ -151,6 +151,27 @@ label{font-weight:700}
 .pScore b{display:block;font-family:var(--display);font-size:30px;color:var(--gold)}
 .pTimer{font-family:var(--display);font-size:28px;text-align:center;color:var(--gold)}
 footer{text-align:center;font-size:13px;color:var(--muted);margin-top:8px}
+button.armed{background:var(--red);color:#fff;box-shadow:0 0 0 4px #fff}
+
+/* --- gestor de imágenes --- */
+#imgPanel{display:grid;gap:14px}
+.imgTabs{display:flex;gap:8px;flex-wrap:wrap}
+.imgTabs button{background:var(--bg);color:#fff;border:3px solid var(--bg-3)}
+.imgTabs button.sel{border-color:var(--gold);background:var(--bg-3)}
+.dropzone{border:3px dashed var(--muted);border-radius:22px;padding:22px;text-align:center;display:grid;gap:10px;justify-items:center;transition:background .2s,border-color .2s}
+.dropzone.over{background:rgba(255,207,90,.15);border-color:var(--gold)}
+.dropzone input[type=file]{display:none}
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.tile{position:relative;background:var(--bg);border:3px solid var(--bg-3);border-radius:16px;padding:8px;display:grid;gap:6px;justify-items:center;cursor:pointer;text-align:center}
+.tile.has{border-color:var(--green)}
+.tile.over{border-color:var(--gold);background:var(--bg-3)}
+.tile .th{width:100%;aspect-ratio:1;border-radius:10px;background:linear-gradient(160deg,#fff7e6,#f1e4c2);display:grid;place-items:center;overflow:hidden}
+.tile .th img{max-width:92%;max-height:92%;object-fit:contain}
+.tile .th img.sil{filter:brightness(0)}
+.tile .th span{font-family:var(--display);font-size:46px;color:#5a4a8a}
+.tile b{font-size:14px;line-height:1.15}
+.tile .x{position:absolute;top:4px;right:4px;background:var(--red);color:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:14px;padding:0}
+.tile input[type=file]{display:none}
 </style>
 </head>
 <body>
@@ -191,11 +212,17 @@ footer{text-align:center;font-size:13px;color:var(--muted);margin-top:8px}
           <label>Rondas <select id="optRounds"><option value="5">5</option><option value="8">8</option><option value="10" selected>10</option><option value="15">15</option><option value="20">20</option><option value="0">Todos los personajes</option></select></label>
           <label>Tiempo por pregunta <select id="optTime"><option value="0">Sin límite</option><option value="15">15 segundos</option><option value="20" selected>20 segundos</option><option value="30">30 segundos</option><option value="45">45 segundos</option></select></label>
           <label>Cómo se oculta <select id="optEffect"><option value="">Según el pack</option><option value="silueta">Silueta</option><option value="pixelado">Pixelado</option><option value="desenfoque">Desenfoque</option></select></label>
+          <label>Tras desvelar <select id="optAuto"><option value="0">Esperar a que pulse «Siguiente»</option><option value="4">Siguiente en 4 segundos</option><option value="6" selected>Siguiente en 6 segundos</option><option value="10">Siguiente en 10 segundos</option></select></label>
           <label>Puntos <span class="row" style="gap:6px;font-weight:600"><input type="checkbox" id="optBonus" checked> +5 al más rápido en acertar</span></label>
         </div>
       </div>
       <div>
-        <h2 style="font-size:clamp(20px,2.4vw,32px)">3. Jugadores <span class="muted" id="playerCount"></span></h2>
+        <h2 style="font-size:clamp(20px,2.4vw,32px)">3. Imágenes de los personajes <span class="muted" id="imgCount"></span></h2>
+        <p class="muted" style="margin-top:6px">Las imágenes se guardan en este navegador. Si falta alguna, esa ronda se juega con la pista.</p>
+        <div class="controls" style="margin-top:10px"><button id="btnImgs" class="blue">🖼️ Poner / revisar imágenes</button></div>
+      </div>
+      <div>
+        <h2 style="font-size:clamp(20px,2.4vw,32px)">4. Jugadores <span class="muted" id="playerCount"></span></h2>
         <div class="players" id="players" style="margin-top:10px"><p class="muted">Todavía no hay nadie. ¡Que escaneen el QR!</p></div>
       </div>
       <div class="controls">
@@ -209,6 +236,23 @@ footer{text-align:center;font-size:13px;color:var(--muted);margin-top:8px}
       <div class="code" id="roomCode"></div>
       <p class="muted">o entra en <b id="siteUrl" style="color:#fff"></b> y escribe el código</p>
     </div>
+  </section>
+
+  <!-- gestor de imágenes -->
+  <section id="imgPanel" hidden>
+    <div class="row" style="justify-content:space-between">
+      <h2 style="font-size:clamp(22px,2.6vw,34px)">🖼️ Imágenes de los personajes</h2>
+      <button id="btnImgsBack">← Volver</button>
+    </div>
+    <div class="imgTabs" id="imgTabs"></div>
+    <div class="dropzone" id="dropAll">
+      <div style="font-size:40px;line-height:1">📥</div>
+      <b style="font-size:18px">Arrastra aquí las imágenes (varias a la vez) o <label style="text-decoration:underline;cursor:pointer">elige ficheros<input type="file" id="fileAll" multiple accept="image/*"></label></b>
+      <p class="muted">Se asignan solas por el nombre del fichero (p. ej. <i>elsa.png</i>, <i>Bob Esponja.jpg</i>, <i>aitana.jpeg</i>). También puedes arrastrar una imagen sobre un personaje concreto, o pulsar su casilla para elegirla.</p>
+      <label class="row" style="gap:6px;font-weight:600"><input type="checkbox" id="optCut" checked> Quitar el fondo blanco automáticamente (para que la silueta salga bien)</label>
+      <p id="imgMsg" class="muted"></p>
+    </div>
+    <div class="tiles" id="tiles"></div>
   </section>
 
   <!-- ronda -->
@@ -342,7 +386,8 @@ function startTv(){
     answers: saved.answers || {},                  // id -> {opt, at}
     players: saved.players || {},                  // id -> {name, score, right, lastGain}
     numRounds: saved.numRounds ?? 10, time: saved.time ?? 20, effect: saved.effect || "", bonus: saved.bonus !== false,
-    hintShown: !!saved.hintShown, deadline: saved.deadline || 0, startedAt: saved.startedAt || 0
+    hintShown: !!saved.hintShown, deadline: saved.deadline || 0, startedAt: saved.startedAt || 0,
+    auto: saved.auto ?? 6, nextAt: saved.nextAt || 0
   };
   const save = () => store.set("adv_tv1", T);
   const conns = {};
@@ -411,7 +456,7 @@ function startTv(){
   /* ---------- flujo de la partida ---------- */
   function begin(){
     const pk = pack(); if(!pk) return;
-    T.numRounds = Number($("#optRounds").value); T.time = Number($("#optTime").value); T.effect = $("#optEffect").value; T.bonus = $("#optBonus").checked;
+    T.numRounds = Number($("#optRounds").value); T.time = Number($("#optTime").value); T.effect = $("#optEffect").value; T.bonus = $("#optBonus").checked; T.auto = Number($("#optAuto").value);
     T.rounds = buildRounds(pk, T.numRounds); T.cur = -1;
     for(const id in T.players){ T.players[id].score = 0; T.players[id].right = 0; T.players[id].lastGain = 0; }
     nextRound();
@@ -419,7 +464,7 @@ function startTv(){
   function nextRound(){
     clearTimeout(timer); clearInterval(countdown);
     if(T.cur + 1 >= T.rounds.length){ endGame(); return; }
-    T.cur++; T.phase = "question"; T.answers = {}; T.hintShown = false; imgFailed = false;
+    T.cur++; T.phase = "question"; T.answers = {}; T.hintShown = false; imgFailed = false; T.nextAt = 0;
     for(const id in T.players) T.players[id].lastGain = 0;
     T.startedAt = Date.now(); T.deadline = T.time ? Date.now() + T.time * 1000 : 0;
     save(); render(); broadcast(); drum();
@@ -427,6 +472,13 @@ function startTv(){
   }
   function armTimer(){
     clearTimeout(timer); clearInterval(countdown);
+    if(T.phase === "reveal" && T.nextAt){
+      const left = T.nextAt - Date.now();
+      if(left <= 0){ nextRound(); return; }
+      timer = setTimeout(nextRound, left);
+      countdown = setInterval(renderNextBtn, 250);
+      return;
+    }
     if(T.phase !== "question" || !T.deadline) return;
     const left = T.deadline - Date.now();
     if(left <= 0){ reveal(); return; }
@@ -444,28 +496,36 @@ function startTv(){
     const r = round();
     const right = Object.entries(T.answers).filter(([id,a]) => a.opt === r.correct && T.players[id]).sort((x,y) => x[1].at - y[1].at);
     right.forEach(([id], i) => { const p = T.players[id]; let g = POINTS_OK; if(T.bonus && i === 0) g += POINTS_BONUS; p.score += g; p.right++; p.lastGain = g; });
-    T.phase = "reveal"; save(); render(); broadcast();
+    T.phase = "reveal"; T.nextAt = T.auto > 0 ? Date.now() + T.auto * 1000 : 0; save(); render(); broadcast();
     right.length ? fanfare() : buzz();
+    armTimer();
+  }
+  function renderNextBtn(){
+    const b = $("#btnNext"); if(T.phase !== "reveal") return;
+    const last = T.cur + 1 >= T.rounds.length;
+    const left = T.nextAt ? Math.max(0, Math.ceil((T.nextAt - Date.now()) / 1000)) : 0;
+    b.textContent = (last ? "Ver resultados 🏆" : "Siguiente ▶") + (T.nextAt ? ` (${left})` : "");
   }
   function endGame(){
     clearTimeout(timer); clearInterval(countdown);
-    T.phase = "end"; save(); render(); broadcast(); fanfare();
+    T.phase = "end"; T.nextAt = 0; save(); render(); broadcast(); fanfare();
   }
   function newGame(){
-    T.gen = randCode(4); T.phase = "lobby"; T.rounds = []; T.cur = -1; T.answers = {};
+    T.gen = randCode(4); T.phase = "lobby"; T.rounds = []; T.cur = -1; T.answers = {}; T.nextAt = 0;
     for(const id in T.players){ T.players[id].score = 0; T.players[id].right = 0; T.players[id].lastGain = 0; }
     save(); render(); broadcast();
   }
   function resetRoom(){
-    if(!confirm("Se cerrará esta sala y se creará otra con un código nuevo. Los jugadores tendrán que volver a escanear el QR. ¿Seguir?")) return;
     try{ peer && peer.destroy(); }catch(e){}
     localStorage.removeItem("adv_tv1"); location.reload();
   }
   function toggleHint(){ if(T.phase !== "question") return; T.hintShown = !T.hintShown; save(); renderHint(); }
 
   /* ---------- pintar ---------- */
+  let imgPanelOpen = false;
   function render(){
-    $("#lobby").hidden = T.phase !== "lobby";
+    $("#lobby").hidden = T.phase !== "lobby" || imgPanelOpen;
+    $("#imgPanel").hidden = !(T.phase === "lobby" && imgPanelOpen);
     $("#game").hidden = !(T.phase === "question" || T.phase === "reveal");
     $("#final").hidden = T.phase !== "end";
     $("#packPill").hidden = T.phase === "lobby"; $("#packPill").textContent = pack().emoji + " " + pack().nombre;
@@ -482,7 +542,8 @@ function startTv(){
       b.onclick = () => { T.packId = p.id; save(); renderLobby(); };
       list.appendChild(b);
     });
-    $("#optRounds").value = String(T.numRounds); $("#optTime").value = String(T.time); $("#optEffect").value = T.effect; $("#optBonus").checked = T.bonus;
+    $("#optRounds").value = String(T.numRounds); $("#optTime").value = String(T.time); $("#optEffect").value = T.effect; $("#optBonus").checked = T.bonus; $("#optAuto").value = String(T.auto);
+    renderImgCount();
     const n = Object.keys(T.players).length;
     $("#btnStart").disabled = n === 0;
     $("#playerCount").textContent = n ? `(${n})` : "";
@@ -508,18 +569,24 @@ function startTv(){
     const counts = [0,0,0,0]; for(const id in T.answers) counts[T.answers[id].opt]++;
     $("#options").innerHTML = r.options.map((o,i) => `<div class="opt ${LETTERS[i]} ${T.phase === "reveal" && i === r.correct ? "right" : ""}"><b>${LETTERS[i]}</b><span>${esc(o)}</span>${T.phase === "reveal" && counts[i] ? `<span class="cnt">${counts[i]}</span>` : ""}</div>`).join("");
     $("#btnReveal").hidden = T.phase !== "question"; $("#btnHint").hidden = T.phase !== "question";
-    $("#btnNext").hidden = T.phase !== "reveal"; $("#btnNext").textContent = T.cur + 1 >= T.rounds.length ? "Ver resultados 🏆" : "Siguiente ▶";
+    $("#btnNext").hidden = T.phase !== "reveal"; renderNextBtn();
     $("#phaseInfo").textContent = T.phase === "question" ? "Responded en el móvil…" : "¡Desvelado!";
     renderRoundPlayers(); renderScore();
   }
-  function renderFigure(r){
+  let figUrl = null;
+  async function renderFigure(r){
     const box = $("#figInner"); box.innerHTML = "";
     $("#hint").hidden = true;
-    if(!r.img){ imgFailed = true; box.innerHTML = `<span class="q">?</span>`; renderHint(); return; }
+    if(figUrl){ URL.revokeObjectURL(figUrl); figUrl = null; }
+    const myKey = T.cur + ":" + T.gen;
+    let blob = null; try{ blob = await ImgStore.get(T.packId, r.n); }catch(e){}
+    if(lastFig !== myKey) return;                                   // ya hemos cambiado de ronda mientras se leía
+    const src = blob ? (figUrl = URL.createObjectURL(blob)) : r.img;
+    if(!src){ imgFailed = true; box.innerHTML = `<span class="q">?</span>`; renderHint(); return; }
     const img = new Image(); img.alt = ""; img.decoding = "async";
     img.onload = () => { if(effect() === "pixelado") pixelate(img, box); };
     img.onerror = () => { imgFailed = true; box.innerHTML = `<span class="q">?</span>`; renderHint(); };
-    img.src = r.img; box.appendChild(img);
+    img.src = src; box.appendChild(img);
   }
   function pixelate(img, box){
     try{
@@ -576,21 +643,164 @@ function startTv(){
   $("#optTime").onchange = e => { T.time = Number(e.target.value); save(); };
   $("#optEffect").onchange = e => { T.effect = e.target.value; save(); };
   $("#optBonus").onchange = e => { T.bonus = e.target.checked; save(); };
-  $("#btnReset").onclick = resetRoom;
+  $("#optAuto").onchange = e => { T.auto = Number(e.target.value); save(); };
+  /* botones que piden confirmación sin pop-ups (los pop-ups bloquean el navegador de la TV): hay que pulsar dos veces */
+  function armed(btn, label, fn){
+    let t = null; const original = btn.textContent;
+    btn.onclick = () => {
+      if(btn.classList.contains("armed")){ clearTimeout(t); btn.classList.remove("armed"); btn.textContent = original; fn(); return; }
+      btn.classList.add("armed"); btn.textContent = label;
+      t = setTimeout(() => { btn.classList.remove("armed"); btn.textContent = original; }, 4000);
+    };
+  }
+  armed($("#btnReset"), "¿Seguro? Pulsa otra vez para crear una sala nueva", resetRoom);
+  armed($("#btnEnd"), "¿Terminar? Pulsa otra vez", endGame);
+  $("#btnImgs").onclick = () => { imgPanelOpen = true; imgTab = T.packId; render(); renderImgPanel(); };
+  $("#btnImgsBack").onclick = () => { imgPanelOpen = false; render(); };
   $("#btnReveal").onclick = reveal;
   $("#btnHint").onclick = toggleHint;
   $("#btnNext").onclick = nextRound;
-  $("#btnEnd").onclick = () => { if(confirm("¿Terminar la partida y ver los resultados?")) endGame(); };
   $("#btnAgain").onclick = newGame;
   document.addEventListener("keydown", e => {
     if(e.target.matches("input,select,textarea,button")) return;
-    if(e.key === "Enter" || e.key === "ArrowRight"){ e.preventDefault(); if(T.phase === "question") reveal(); else if(T.phase === "reveal") nextRound(); else if(T.phase === "lobby" && !$("#btnStart").disabled) begin(); else if(T.phase === "end") newGame(); }
+    if(e.key === "Enter" || e.key === "ArrowRight"){ e.preventDefault(); if(T.phase === "question") reveal(); else if(T.phase === "reveal") nextRound(); else if(T.phase === "lobby" && !imgPanelOpen && !$("#btnStart").disabled) begin(); else if(T.phase === "end") newGame(); }
     if(e.key === "p" || e.key === "P") toggleHint();
   });
   window.addEventListener("beforeunload", save);
 
+  /* ---------- gestor de imágenes ---------- */
+  let imgTab = T.packId, imgKeys = new Set();
+  const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\.[a-z0-9]{2,5}$/, "").replace(/[^a-z0-9]/g, "");
+  function matchItem(pk, filename){
+    const f = norm(filename); if(!f) return null;
+    const cands = pk.items.map(it => ({ it, keys: [norm(it.n), norm(it.img)].filter(Boolean) }));
+    let best = cands.find(c => c.keys.includes(f));
+    if(!best) best = cands.filter(c => c.keys.some(k => k.length >= 4 && (f.includes(k) || k.includes(f)))).sort((a,b) => Math.max(...b.keys.map(k => k.length)) - Math.max(...a.keys.map(k => k.length)))[0];
+    return best ? best.it : null;
+  }
+  async function refreshImgKeys(){ try{ imgKeys = new Set(await ImgStore.keys()); }catch(e){ imgKeys = new Set(); } }
+  function renderImgCount(){
+    refreshImgKeys().then(() => {
+      const el = $("#imgCount"); if(!el) return;
+      el.textContent = PACKS.map(p => `${p.emoji} ${p.items.filter(it => imgKeys.has(ImgStore.key(p.id, it.n))).length}/${p.items.length}`).join(" · ");
+    });
+  }
+  async function renderImgPanel(){
+    await refreshImgKeys();
+    const pk = PACKS.find(p => p.id === imgTab) || PACKS[0]; imgTab = pk.id;
+    $("#imgTabs").innerHTML = PACKS.map(p => `<button type="button" data-id="${esc(p.id)}" class="${p.id === pk.id ? "sel" : ""}">${esc(p.emoji)} ${esc(p.nombre)} <span class="muted">${p.items.filter(it => imgKeys.has(ImgStore.key(p.id, it.n))).length}/${p.items.length}</span></button>`).join("");
+    $("#imgTabs").querySelectorAll("button").forEach(b => b.onclick = () => { imgTab = b.dataset.id; renderImgPanel(); });
+    $("#optCut").checked = (T.effect || pk.efecto) !== "pixelado";
+    const tiles = $("#tiles"); tiles.innerHTML = "";
+    for(const it of pk.items){
+      const has = imgKeys.has(ImgStore.key(pk.id, it.n));
+      const d = document.createElement("div"); d.className = "tile" + (has ? " has" : "");
+      d.innerHTML = `<div class="th">${has ? "" : `<span>?</span>`}</div><b>${esc(it.n)}</b>${has ? `<button type="button" class="x" title="Quitar imagen">✕</button>` : ""}<input type="file" accept="image/*">`;
+      const input = d.querySelector("input");
+      d.onclick = e => { if(e.target.closest(".x")) return; input.click(); };
+      input.onchange = () => { if(input.files[0]) addImage(pk, it, input.files[0]); };
+      if(has){
+        d.querySelector(".x").onclick = async e => { e.stopPropagation(); await ImgStore.del(pk.id, it.n); renderImgPanel(); };
+        ImgStore.get(pk.id, it.n).then(b => { if(!b) return; const im = new Image(); im.className = (T.effect || pk.efecto) === "silueta" ? "sil" : ""; im.src = URL.createObjectURL(b); im.onload = () => URL.revokeObjectURL(im.src); d.querySelector(".th").appendChild(im); });
+      }
+      d.ondragover = e => { e.preventDefault(); d.classList.add("over"); };
+      d.ondragleave = () => d.classList.remove("over");
+      d.ondrop = e => { e.preventDefault(); e.stopPropagation(); d.classList.remove("over"); const f = e.dataTransfer.files[0]; if(f) addImage(pk, it, f); };
+      tiles.appendChild(d);
+    }
+  }
+  async function addImage(pk, it, file){
+    msg(`Guardando ${esc(it.n)}…`);
+    try{
+      const blob = $("#optCut").checked ? await cutBackground(file) : file;
+      await ImgStore.put(pk.id, it.n, blob);
+      msg(`✅ ${esc(it.n)} guardada.`);
+    }catch(e){ msg(`No se ha podido guardar la imagen de ${esc(it.n)}: ${esc(e.message || e)}`); }
+    lastFig = null; renderImgPanel();
+  }
+  async function addMany(files){
+    const pk = PACKS.find(p => p.id === imgTab) || PACKS[0];
+    const ok = [], bad = [];
+    for(const f of files){
+      if(!/^image\//.test(f.type)){ bad.push(f.name); continue; }
+      const it = matchItem(pk, f.name);
+      if(!it){ bad.push(f.name); continue; }
+      try{ await ImgStore.put(pk.id, it.n, $("#optCut").checked ? await cutBackground(f) : f); ok.push(it.n); }catch(e){ bad.push(f.name); }
+    }
+    msg(`${ok.length ? "✅ Guardadas: " + ok.map(esc).join(", ") + ". " : ""}${bad.length ? "⚠️ No he sabido a quién corresponden (pulsa la casilla del personaje y elígela a mano): " + bad.map(esc).join(", ") : ""}`);
+    lastFig = null; renderImgPanel();
+  }
+  function msg(html){ $("#imgMsg").innerHTML = html; }
+  /* quita el fondo uniforme (blanco o del color de las esquinas) por inundación desde los bordes; devuelve un PNG con transparencia */
+  function cutBackground(file){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file); const img = new Image();
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("imagen no válida")); };
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        try{
+          const MAX = 1200; const sc = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+          const w = Math.max(1, Math.round(img.naturalWidth * sc)), h = Math.max(1, Math.round(img.naturalHeight * sc));
+          const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+          const c = cv.getContext("2d", { willReadFrequently: true }); c.drawImage(img, 0, 0, w, h);
+          const im = c.getImageData(0, 0, w, h), d = im.data;
+          // si ya tiene transparencia de sobra, no tocar
+          let transparent = 0; for(let i = 3; i < d.length; i += 4 * 97) if(d[i] < 20) transparent++;
+          if(transparent > (d.length / (4 * 97)) * 0.08){ cv.toBlob(b => resolve(b), "image/png"); return; }
+          const TOL = 48, seen = new Uint8Array(w * h), stack = [];
+          const push = (x, y) => { if(x < 0 || y < 0 || x >= w || y >= h) return; const i = y * w + x; if(!seen[i]){ seen[i] = 1; stack.push(i); } };
+          const corners = [[0,0],[w-1,0],[0,h-1],[w-1,h-1]];
+          for(const [x,y] of corners){
+            const i = (y * w + x) * 4; const r0 = d[i], g0 = d[i+1], b0 = d[i+2];
+            const near = j => Math.abs(d[j] - r0) + Math.abs(d[j+1] - g0) + Math.abs(d[j+2] - b0) <= TOL * 3;
+            const start = stack.length; push(x, y);
+            while(stack.length > start){
+              const p = stack.pop(); const j = p * 4;
+              if(!near(j)){ continue; }
+              d[j+3] = 0;
+              const px = p % w, py = (p - px) / w;
+              push(px+1, py); push(px-1, py); push(px, py+1); push(px, py-1);
+            }
+          }
+          c.putImageData(im, 0, 0);
+          cv.toBlob(b => b ? resolve(b) : reject(new Error("no se pudo generar el PNG")), "image/png");
+        }catch(e){ reject(e); }
+      };
+      img.src = url;
+    });
+  }
+  const dz = $("#dropAll");
+  dz.ondragover = e => { e.preventDefault(); dz.classList.add("over"); };
+  dz.ondragleave = () => dz.classList.remove("over");
+  dz.ondrop = e => { e.preventDefault(); dz.classList.remove("over"); if(e.dataTransfer.files.length) addMany([...e.dataTransfer.files]); };
+  $("#fileAll").onchange = e => { if(e.target.files.length) addMany([...e.target.files]); e.target.value = ""; };
+  $("#imgPanel").ondragover = e => e.preventDefault();
+  $("#imgPanel").ondrop = e => e.preventDefault();
+
   drawQr(); render(); startPeer(); armTimer();
 }
+
+/* =====================================================
+   Imágenes guardadas en el navegador (IndexedDB)
+   ===================================================== */
+const ImgStore = {
+  db: null,
+  key(packId, name){ return packId + "|" + name; },
+  open(){
+    if(this.db) return Promise.resolve(this.db);
+    return new Promise((res, rej) => {
+      const r = indexedDB.open("adivina-imgs", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("imgs");
+      r.onsuccess = () => { this.db = r.result; res(this.db); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  tx(mode, fn){ return this.open().then(db => new Promise((res, rej) => { const t = db.transaction("imgs", mode); const q = fn(t.objectStore("imgs")); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); })); },
+  get(p, n){ return this.tx("readonly", s => s.get(this.key(p, n))); },
+  put(p, n, blob){ return this.tx("readwrite", s => s.put(blob, this.key(p, n))); },
+  del(p, n){ return this.tx("readwrite", s => s.delete(this.key(p, n))); },
+  keys(){ return this.tx("readonly", s => s.getAllKeys()); }
+};
 
 /* =====================================================
    MÓVIL: recibe las opciones y responde
