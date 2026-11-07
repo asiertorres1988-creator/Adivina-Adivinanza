@@ -172,6 +172,16 @@ button.armed{background:var(--red);color:#fff;box-shadow:0 0 0 4px #fff}
 .tile b{font-size:14px;line-height:1.15}
 .tile .x{position:absolute;top:4px;right:4px;background:var(--red);color:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:14px;padding:0}
 .tile input[type=file]{display:none}
+.tile .tools{display:flex;gap:4px}
+.tile .tools button{padding:.25em .55em;font-size:13px;border-radius:9px}
+.tile .tools a{font-size:13px;color:var(--muted);align-self:center}
+#webResults{position:fixed;inset:0;background:rgba(20,10,50,.92);z-index:50;overflow:auto;padding:20px;display:grid;align-content:start;gap:14px}
+#webResults .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+#webResults .cand{background:var(--bg-2);border:3px solid var(--bg-3);border-radius:14px;padding:6px;cursor:pointer;display:grid;gap:4px;text-align:center}
+#webResults .cand:hover{border-color:var(--gold)}
+#webResults .cand .th{height:170px;display:grid;place-items:center;background:#fff;border-radius:8px;overflow:hidden}
+#webResults .cand img{max-width:100%;max-height:100%;object-fit:contain}
+#webResults .cand small{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -250,9 +260,16 @@ button.armed{background:var(--red);color:#fff;box-shadow:0 0 0 4px #fff}
       <b style="font-size:18px">Arrastra aquí las imágenes (varias a la vez) o <label style="text-decoration:underline;cursor:pointer">elige ficheros<input type="file" id="fileAll" multiple accept="image/*"></label></b>
       <p class="muted">Se asignan solas por el nombre del fichero (p. ej. <i>elsa.png</i>, <i>Bob Esponja.jpg</i>, <i>aitana.jpeg</i>). También puedes arrastrar una imagen sobre un personaje concreto, o pulsar su casilla para elegirla.</p>
       <label class="row" style="gap:6px;font-weight:600"><input type="checkbox" id="optCut" checked> Quitar el fondo blanco automáticamente (para que la silueta salga bien)</label>
+      <div class="controls" style="justify-content:center"><button id="btnAutoFill" class="blue">🌐 Buscar en Wikipedia las que faltan</button></div>
+      <p class="muted" style="font-size:13px">Las fotos de Wikipedia / Wikimedia Commons son libres y se descargan en este navegador. Para personajes de Disney o dibujos, Wikipedia suele no tener imagen: usa el 🌐 de cada casilla (te enseña candidatas) o el enlace a Google Imágenes y arrastra la que quieras.</p>
       <p id="imgMsg" class="muted"></p>
     </div>
     <div class="tiles" id="tiles"></div>
+    <div id="webResults" hidden>
+      <div class="row" style="justify-content:space-between"><h2 id="webTitle" style="font-size:24px"></h2><button id="webClose">✕ Cerrar</button></div>
+      <p id="webMsg" class="muted"></p>
+      <div class="grid" id="webGrid"></div>
+    </div>
   </section>
 
   <!-- ronda -->
@@ -695,9 +712,10 @@ function startTv(){
     for(const it of pk.items){
       const has = imgKeys.has(ImgStore.key(pk.id, it.n));
       const d = document.createElement("div"); d.className = "tile" + (has ? " has" : "");
-      d.innerHTML = `<div class="th">${has ? "" : `<span>?</span>`}</div><b>${esc(it.n)}</b>${has ? `<button type="button" class="x" title="Quitar imagen">✕</button>` : ""}<input type="file" accept="image/*">`;
+      d.innerHTML = `<div class="th">${has ? "" : `<span>?</span>`}</div><b>${esc(it.n)}</b><div class="tools"><button type="button" class="web blue" title="Buscar en Wikipedia / Commons">🌐 Buscar</button><a href="${googleUrl(pk, it)}" target="_blank" rel="noopener" title="Abrir Google Imágenes en otra pestaña">Google</a></div>${has ? `<button type="button" class="x" title="Quitar imagen">✕</button>` : ""}<input type="file" accept="image/*">`;
       const input = d.querySelector("input");
-      d.onclick = e => { if(e.target.closest(".x")) return; input.click(); };
+      d.onclick = e => { if(e.target.closest(".x, .tools")) return; input.click(); };
+      d.querySelector(".web").onclick = e => { e.stopPropagation(); webSearch(pk, it); };
       input.onchange = () => { if(input.files[0]) addImage(pk, it, input.files[0]); };
       if(has){
         d.querySelector(".x").onclick = async e => { e.stopPropagation(); await ImgStore.del(pk.id, it.n); renderImgPanel(); };
@@ -769,6 +787,78 @@ function startTv(){
       img.src = url;
     });
   }
+  /* ---------- búsqueda de imágenes en Wikipedia / Wikimedia Commons ---------- */
+  const WEB_CTX = { princesas: "Disney", cantantes: "cantante", dibujos: "personaje" };
+  const ctxOf = pk => pk.busqueda || WEB_CTX[pk.id] || "";
+  function googleUrl(pk, it){ return "https://www.google.com/search?tbm=isch&q=" + encodeURIComponent(`${it.n} ${ctxOf(pk)} png`); }
+  async function getJson(url){ const r = await fetch(url, { mode: "cors" }); if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); }
+  async function wikiCandidates(pk, it, quick){
+    const q = `${it.n} ${ctxOf(pk)}`.trim(), out = [], seen = new Set();
+    const add = c => { if(c.url && !seen.has(c.url)){ seen.add(c.url); out.push(c); } };
+    for(const lang of ["es", "en"]){
+      try{
+        const j = await getJson(`https://${lang}.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=${quick ? 2 : 4}&prop=pageimages&piprop=thumbnail|name&pithumbsize=800&format=json&origin=*`);
+        for(const p of Object.values((j.query && j.query.pages) || {}).sort((a,b) => a.index - b.index)) if(p.thumbnail) add({ url: p.thumbnail.source, title: p.title, src: lang + ".wikipedia", lic: "" });
+      }catch(e){}
+      if(quick && out.length) return out;
+    }
+    if(quick) return out;
+    try{
+      const j = await getJson(`https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=800&format=json&origin=*`);
+      for(const p of Object.values((j.query && j.query.pages) || {}).sort((a,b) => a.index - b.index)){
+        const ii = p.imageinfo && p.imageinfo[0]; if(!ii || !ii.thumburl || !/\.(jpe?g|png|webp|gif|svg)$/i.test(p.title)) continue;
+        const m = ii.extmetadata || {};
+        add({ url: ii.thumburl, title: p.title.replace(/^File:/, ""), src: "Commons", lic: (m.LicenseShortName && m.LicenseShortName.value) || "", author: ((m.Artist && m.Artist.value) || "").replace(/<[^>]+>/g, "").slice(0, 40) });
+      }
+    }catch(e){}
+    return out;
+  }
+  async function fetchImageBlob(url){
+    const r = await fetch(url, { mode: "cors" }); if(!r.ok) throw new Error("HTTP " + r.status);
+    const b = await r.blob(); if(!/^image\//.test(b.type)) throw new Error("no es una imagen");
+    return new File([b], (url.split("/").pop() || "imagen"), { type: b.type });
+  }
+  async function webSearch(pk, it){
+    const box = $("#webResults"); box.hidden = false; $("#webTitle").textContent = `🌐 ${it.n}`; $("#webGrid").innerHTML = ""; $("#webMsg").textContent = "Buscando en Wikipedia y Wikimedia Commons…";
+    let cands = [];
+    try{ cands = await wikiCandidates(pk, it, false); }catch(e){}
+    if(!cands.length){ $("#webMsg").innerHTML = `No he encontrado imágenes libres de ${esc(it.n)}. Prueba en <a href="${googleUrl(pk, it)}" target="_blank" rel="noopener" style="color:var(--gold)">Google Imágenes</a>, guarda la que te guste y arrástrala a su casilla.`; return; }
+    $("#webMsg").textContent = `Pulsa la imagen que quieras usar para ${it.n} (${cands.length} candidatas). Si ninguna vale, usa Google Imágenes y arrástrala a su casilla.`;
+    for(const c of cands){
+      const d = document.createElement("div"); d.className = "cand";
+      d.innerHTML = `<div class="th"><img alt="" loading="lazy" referrerpolicy="no-referrer"></div><small>${esc(c.src)}${c.lic ? " · " + esc(c.lic) : ""}</small><small>${esc(c.title)}</small>`;
+      d.querySelector("img").src = c.url;
+      d.onclick = async () => {
+        $("#webMsg").textContent = `Descargando ${it.n}…`;
+        try{ const f = await fetchImageBlob(c.url); box.hidden = true; await addImage(pk, it, f); }
+        catch(e){ $("#webMsg").textContent = `No se ha podido descargar esa imagen (${e.message}). Prueba otra.`; }
+      };
+      $("#webGrid").appendChild(d);
+    }
+  }
+  $("#webClose").onclick = () => { $("#webResults").hidden = true; };
+  let autoBusy = false;
+  async function autoFill(){
+    if(autoBusy) return; autoBusy = true;
+    const pk = PACKS.find(p => p.id === imgTab) || PACKS[0]; const btn = $("#btnAutoFill"); btn.disabled = true;
+    await refreshImgKeys();
+    const missing = pk.items.filter(it => !imgKeys.has(ImgStore.key(pk.id, it.n)));
+    const ok = [], bad = [];
+    for(let i = 0; i < missing.length; i++){
+      const it = missing[i]; msg(`Buscando ${esc(it.n)}… (${i + 1} de ${missing.length})`);
+      try{
+        const cands = await wikiCandidates(pk, it, true);
+        if(!cands.length){ bad.push(it.n); continue; }
+        const f = await fetchImageBlob(cands[0].url);
+        await ImgStore.put(pk.id, it.n, $("#optCut").checked ? await cutBackground(f) : f); ok.push(it.n);
+        renderImgPanel();
+      }catch(e){ bad.push(it.n); }
+    }
+    msg(`${ok.length ? `✅ Encontradas en Wikipedia: ${ok.map(esc).join(", ")}. ` : ""}${bad.length ? `⚠️ Sin imagen libre (usa 🌐 o Google en su casilla): ${bad.map(esc).join(", ")}` : (missing.length ? "" : "Ya están todas.")}`);
+    lastFig = null; btn.disabled = false; autoBusy = false; renderImgPanel();
+  }
+  $("#btnAutoFill").onclick = autoFill;
+
   const dz = $("#dropAll");
   dz.ondragover = e => { e.preventDefault(); dz.classList.add("over"); };
   dz.ondragleave = () => dz.classList.remove("over");
