@@ -1,0 +1,1 @@
+Pon aquí las imágenes del pack Dibujos animados (PNG con fondo transparente) con los nombres de fichero indicados en packs.js e IMAGENES.md.
