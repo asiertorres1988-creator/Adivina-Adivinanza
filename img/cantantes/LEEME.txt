@@ -1,0 +1,1 @@
+Pon aquí las fotos del pack Cantantes españoles actuales (JPG o PNG; se muestran pixeladas) con los nombres de fichero indicados en packs.js e IMAGENES.md.
