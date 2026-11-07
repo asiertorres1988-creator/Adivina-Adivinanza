@@ -18,6 +18,7 @@ Las listas (nombres, pistas y opciones «parecidas» para despistar) están en `
 
 El repositorio **no incluye las imágenes** de los personajes. La forma más fácil de ponerlas es desde la pantalla de la TV, en el botón **«Poner / revisar imágenes»** del inicio:
 
+- **«🌐 Buscar en Wikipedia las que faltan»** busca en Wikipedia / Wikimedia Commons una foto libre de cada personaje del pack que no tenga imagen y la guarda sola. Funciona muy bien con los **cantantes** (tienen foto en Wikipedia); con princesas y dibujos Wikipedia casi nunca tiene el dibujo del personaje, así que para esos usa el **🌐 Buscar** de cada casilla (te enseña varias candidatas para elegir) o el enlace **Google**, que abre Google Imágenes en otra pestaña: guarda la que te guste y arrástrala a su casilla.
 - **Arrastra** varias imágenes a la vez (o elige ficheros): se asignan solas por el nombre del fichero (`elsa.png`, `Bob Esponja.jpg`, `aitana.jpeg`…). Las que no reconozca te las dice; pulsa la casilla del personaje y elígela a mano.
 - Con **«Quitar el fondo blanco automáticamente»** marcado, la app recorta el fondo liso (blanco o del color de las esquinas) para que la **silueta** salga bien aunque la imagen sea un JPG. Para fotos (cantantes), desmárcalo: se usan con el efecto **pixelado**.
 - Las imágenes se guardan en **ese navegador** (IndexedDB), no se suben a ningún sitio. Si juegas desde otro aparato, vuelve a cargarlas ahí.
